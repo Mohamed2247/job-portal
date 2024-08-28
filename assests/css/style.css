@@ -8,12 +8,7 @@
   font-weight: bold;
 }
 
-.navbar {
-  transition: background-color 0.3s ease;
-}
-
-.navbar-nav .nav-link {
-  color: white;
+nav .navbar-nav .nav-link {
   padding: 0 20px;
   margin: 0 18px;
   font-size: 18px;
@@ -21,9 +16,10 @@
   transition: color 0.3s ease;
 }
 
-.navbar-nav .nav-link:hover {
-  color: #007bff;
+nav .navbar-nav .nav-link:hover {
+  color: #007bff !important;
   text-decoration: underline;
+  font-size: 20px;
 }
 
 .navbar-logo {
@@ -33,6 +29,20 @@
 .btn-outline-primary,
 .btn-outline-success {
   font-weight: bold;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-logo {
+    height: 40px;
+  }
+
+  .navbar-nav .nav-item .nav-link {
+    margin-left: 0;
+  }
+
+  .ml-auto {
+    margin-top: 10px;
+  }
 }
 
 .close {
@@ -50,7 +60,7 @@
 #form-background-section {
   position: relative;
   background-image: url("../images/bg.jpg");
-    background-position: center;
+  background-position: center;
   background-size: cover;
   padding: 50px 0;
   min-height: 100vh;
