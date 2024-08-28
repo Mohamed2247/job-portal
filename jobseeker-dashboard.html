@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Seeker Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./assets/css/jobseeker-dashboard.css" />
+    <style>
+      body {
+        background-color: #f8f9fa;
+        font-family: "Arial", sans-serif;
+      }
+
+      .job-posting {
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: transform 0.2s ease-in-out;
+      }
+
+      .job-posting:hover {
+        transform: translateY(-5px);
+      }
+
+      .job-posting h3 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+        color: #343a40;
+      }
+
+      .job-posting p {
+        font-size: 1rem;
+        margin-bottom: 5px;
+        color: #6c757d;
+      }
+
+      .apply-btn {
+        background-color: #007bff;
+        border: none;
+        color: #ffffff;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      .apply-btn:hover {
+        background-color: #0056b3;
+      }
+
+      #jobs-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .container {
+        padding-top: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="text-center mb-4">Welcome, <span id="username"></span>!</h2>
+      <p class="text-center mb-5">Here are the latest job openings:</p>
+
+      <div id="jobs-container">
+        <!-- Jobs will be dynamically inserted here -->
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.4.0/firebase-app.js";
+      import { getAuth } from "https://www.gstatic.com/firebasejs/9.4.0/firebase-auth.js";
+      import { getDatabase, ref, get, set, push } from "https://www.gstatic.com/firebasejs/9.4.0/firebase-database.js";
+      import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.4.0/firebase-storage.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDAM2-V50uDYvnKgL-Y8XOT_51v743nitM",
+        authDomain: "job-portal-9514a.firebaseapp.com",
+        databaseURL: "https://job-portal-9514a-default-rtdb.firebaseio.com",
+        projectId: "job-portal-9514a",
+        storageBucket: "job-portal-9514a.appspot.com",
+        messagingSenderId: "277570197878",
+        appId: "1:277570197878:web:f37d7fafc024c14c6d0257",
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth();
+      const database = getDatabase(app);
+      const storage = getStorage(app);
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const jobsRef = ref(database, "jobs/");
+        get(jobsRef)
+          .then((snapshot) => {
+            if (snapshot.exists()) {
+              const jobs = snapshot.val();
+              const jobsContainer = document.getElementById("jobs-container");
+
+              for (let jobId in jobs) {
+                const job = jobs[jobId];
+                const jobElement = document.createElement("div");
+                jobElement.classList.add("job-posting");
+
+                jobElement.innerHTML = `
+                  <h3>${job.title}</h3>
+                  <p><strong>Position:</strong> ${job.position}</p>
+                  <p><strong>Salary:</strong> ${job.salary}</p>
+                  <p><strong>Company:</strong> ${job.companyName}</p>
+                  <p><strong>Location:</strong> ${job.location}</p>
+                  <p><strong>Description:</strong> ${job.description}</p>
+                  <input type="file" id="cv-upload-${jobId}" style="display: none;" />
+                  <button class="apply-btn" data-job-id="${jobId}">Apply</button>
+                `;
+
+                jobsContainer.appendChild(jobElement);
+              }
+
+              // Add event listener to apply buttons
+              document.querySelectorAll(".apply-btn").forEach((button) => {
+                button.addEventListener("click", function () {
+                  const jobId = this.getAttribute("data-job-id");
+                  const fileInput = document.getElementById(`cv-upload-${jobId}`);
+                  
+                  fileInput.click(); // Trigger file upload
+
+                  // Listen for file selection
+                  fileInput.addEventListener("change", function () {
+                    applyForJob(jobId, fileInput.files[0]);
+                  });
+                });
+              });
+            } else {
+              alert("No jobs available.");
+            }
+          })
+          .catch((error) => {
+            alert("Error fetching jobs: " + error.message);
+          });
+      });
+
+      // Function to apply for a job
+      function applyForJob(jobId, cvFile) {
+        const user = auth.currentUser;
+
+        if (!user) {
+          alert("You need to log in to apply for jobs.");
+          return;
+        }
+
+        if (!cvFile) {
+          alert("Please upload your CV.");
+          return;
+        }
+
+        const storageReference = storageRef(storage, `cvs/${user.uid}/${jobId}-${cvFile.name}`);
+
+        // Upload the file to Firebase Storage
+        uploadBytes(storageReference, cvFile)
+          .then((snapshot) => {
+            // Get the download URL after successful upload
+            return getDownloadURL(snapshot.ref);
+          })
+          .then((downloadURL) => {
+            // Reference for new job application
+            const applicationRef = ref(database, "applications");
+            const newApplicationRef = push(applicationRef);
+
+            // Save application details in the Realtime Database
+            return set(newApplicationRef, {
+              jobId: jobId,
+              userId: user.uid,
+              userEmail: user.email,
+              appliedAt: new Date().toISOString(),
+              cvUrl: downloadURL, // Save the CV URL
+            });
+          })
+          .then(() => {
+            alert("Successfully applied for the job!");
+          })
+          .catch((error) => {
+            console.error("Error during application process:", error);
+            alert("Error during application process: " + error.message);
+          });
+      }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
